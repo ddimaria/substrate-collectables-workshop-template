@@ -59,7 +59,7 @@ pub mod pallet {
             &self
                 .kitties
                 .iter()
-                .map(|kitty| <Module<T>>::create_kitty(T::Origin::signed(10)));
+                .map(|kitty| <Module<T>>::create_kitty(kitty));
         }
     }
 
@@ -450,9 +450,7 @@ mod tests {
             .build_storage::<Test>()
             .unwrap();
         crate::GenesisConfig {
-            substratekitties: Some(crate::SubstratekittiesConfig {
-                kitties: vec![Origin::signed(10)],
-            }),
+            substratekitties: Some(crate::SubstratekittiesConfig { kitties: vec![10] }),
             ..Default::default()
         }
         .assimilate_storage(&mut t)
