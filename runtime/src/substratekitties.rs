@@ -59,7 +59,7 @@ pub mod pallet {
             &self
                 .kitties
                 .iter()
-                .map(|kitty| <Module<T>>::create_kitty(kitty));
+                .map(|kitty| <Module<T>>::create_kitty(T::Origin::signed(kitty)));
         }
     }
 
