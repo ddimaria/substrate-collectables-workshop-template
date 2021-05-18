@@ -5,11 +5,11 @@ use codec::{Decode, Encode};
 use frame_support::{
     dispatch::DispatchResult,
     ensure,
-    traits::{Currency, ExistenceRequirement, OriginTrait},
+    traits::{Currency, ExistenceRequirement},
 };
 use frame_system::ensure_signed;
 pub use pallet::*;
-use sp_runtime::traits::{Hash, IdentityLookup, Zero};
+use sp_runtime::traits::{Hash, Zero};
 use sp_std::cmp;
 use sp_std::prelude::*;
 
@@ -42,7 +42,7 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub kitties: Vec<T::AccountId>,
+        pub kitties: Vec<(T::AccountId, T::Hash, T::Balance)>,
     }
 
     // Required to implement default for GenesisConfig
@@ -56,10 +56,16 @@ pub mod pallet {
     #[pallet::genesis_build]
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
-            &self
-                .kitties
-                .iter()
-                .map(|kitty| <Module<T>>::create_kitty(T::Origin::signed(kitty)));
+            for &(ref acct, hash, balance) in &self.kitties {
+                let k = Kitty {
+                    id: hash,
+                    dna: hash,
+                    price: balance,
+                    gen: 0,
+                };
+
+                let _ = <Module<T>>::mint(acct.clone(), hash, k);
+            }
         }
     }
 
@@ -265,7 +271,7 @@ pub mod pallet {
             <OwnedKittiesCount<T>>::insert(&to, new_owned_kitty_count);
             <OwnedKittiesIndex<T>>::insert(kitty_id, owned_kitty_count);
 
-            Self::deposit_event(Event::Created(to, kitty_id));
+            // Self::deposit_event(Event::Created(to, kitty_id));
 
             Ok(())
         }
@@ -449,8 +455,10 @@ mod tests {
         let mut t = frame_system::GenesisConfig::default()
             .build_storage::<Test>()
             .unwrap();
-        crate::GenesisConfig {
-            substratekitties: Some(crate::SubstratekittiesConfig { kitties: vec![10] }),
+        GenesisConfig {
+            substratekitties: Some(SubstratekittiesConfig {
+                kitties: vec![(0, H256::random(), 50), (1, H256::zero(), 100)],
+            }),
             ..Default::default()
         }
         .assimilate_storage(&mut t)
@@ -465,7 +473,7 @@ mod tests {
             assert_ok!(Kitties::create_kitty(Origin::signed(10)));
 
             // check that there is now 1 kitty in storage
-            assert_eq!(Kitties::all_kitties_count(), 1);
+            assert_eq!(Kitties::all_kitties_count(), 3);
 
             // check that account #10 owns 1 kitty
             assert_eq!(Kitties::owned_kitty_count(10), 1);
@@ -474,7 +482,7 @@ mod tests {
             assert_eq!(Kitties::owned_kitty_count(5), 0);
 
             // check that this kitty is specifically owned by account #10
-            let hash = Kitties::kitty_by_index(0);
+            let hash = Kitties::kitty_by_index(2);
             assert_eq!(Kitties::owner_of(hash), Some(10));
 
             let other_hash = Kitties::kitty_of_owner_by_index((10, 0));
@@ -491,14 +499,14 @@ mod tests {
             assert_eq!(Kitties::owned_kitty_count(10), 1);
             let hash = Kitties::kitty_of_owner_by_index((10, 0));
 
-            // send kitty to 1.
-            assert_ok!(Kitties::transfer(Origin::signed(10), 1, hash));
+            // send kitty to 3
+            assert_ok!(Kitties::transfer(Origin::signed(10), 3, hash));
 
             // 10 now has nothing
             assert_eq!(Kitties::owned_kitty_count(10), 0);
-            // but 1 does
-            assert_eq!(Kitties::owned_kitty_count(1), 1);
-            let new_hash = Kitties::kitty_of_owner_by_index((1, 0));
+            // but 3 does
+            assert_eq!(Kitties::owned_kitty_count(3), 1);
+            let new_hash = Kitties::kitty_of_owner_by_index((3, 0));
             // and it has the same hash
             assert_eq!(hash, new_hash);
         });
@@ -527,15 +535,15 @@ mod tests {
             let kitty1 = Kitties::kitty_by_index(1);
 
             // Check we have 2 kitties, as specified
-            // assert_eq!(Kitties::all_kitties_count(), 2);
+            assert_eq!(Kitties::all_kitties_count(), 2);
 
             // Check that they are owned correctly
             assert_eq!(Kitties::owner_of(kitty0), Some(0));
             assert_eq!(Kitties::owner_of(kitty1), Some(1));
 
             // Check owners own the correct amount of kitties
-            // assert_eq!(Kitties::owned_kitty_count(0), 1);
-            // assert_eq!(Kitties::owned_kitty_count(2), 0);
+            assert_eq!(Kitties::owned_kitty_count(0), 1);
+            assert_eq!(Kitties::owned_kitty_count(2), 0);
         });
     }
 }
