@@ -150,8 +150,8 @@ pub mod pallet {
             ensure!(owner != sender, "You can't buy your own cat");
 
             let mut kitty = Self::kitty(kitty_id);
-
             let kitty_price = kitty.price;
+
             ensure!(
                 !kitty_price.is_zero(),
                 "The cat you want to buy is not for sale"
@@ -546,4 +546,32 @@ mod tests {
             assert_eq!(Kitties::owned_kitty_count(2), 0);
         });
     }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking {
+    use super::*;
+    use crate::{Substratekitties as PalletModule, *};
+    use frame_benchmarking::{account, benchmarks, impl_benchmark_test_suite};
+    use frame_system::RawOrigin;
+    use sp_std::prelude::*;
+
+    benchmarks! {
+        sort_vector {
+            let x in 0 .. 10000;
+            let mut m = Vec::<u32>::new();
+            for i in (0..x).rev() {
+                m.push(i);
+            }
+        }: {
+            // The benchmark execution phase could also be a closure with custom code
+            m.sort();
+        }
+    }
+
+    impl_benchmark_test_suite!(
+        PalletModule,
+        crate::tests::new_test_ext(),
+        crate::tests::Test,
+    );
 }
