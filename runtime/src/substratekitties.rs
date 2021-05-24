@@ -74,10 +74,7 @@ pub mod pallet {
         #[pallet::weight(100)]
         pub fn create_kitty(origin: OriginFor<T>) -> DispatchResultWithPostInfo {
             let sender = ensure_signed(origin)?;
-            let nonce = <Nonce<T>>::get();
-            let seed = RandomnessCollectiveFlip::random_material();
-            let random_hash = T::Hashing::hash_of(&(seed, &sender, nonce));
-
+            let random_hash = Self::random_hash(&sender);
             let new_kitty = Kitty {
                 id: random_hash,
                 dna: random_hash,
@@ -86,7 +83,7 @@ pub mod pallet {
             };
 
             Self::mint(sender, random_hash, new_kitty)?;
-            <Nonce<T>>::mutate(|n| *n += 1);
+            Self::increment_nonce()?;
 
             Ok(().into())
         }
@@ -202,10 +199,7 @@ pub mod pallet {
                 "This cat 2 does not exist"
             );
 
-            let nonce = <Nonce<T>>::get();
-            let seed = RandomnessCollectiveFlip::random_material();
-            let random_hash = T::Hashing::hash_of(&(seed, &sender, nonce));
-
+            let random_hash = Self::random_hash(&sender);
             let kitty_1 = Self::kitty(kitty_id_1);
             let kitty_2 = Self::kitty(kitty_id_2);
 
@@ -230,14 +224,31 @@ pub mod pallet {
             };
 
             Self::mint(sender, random_hash, new_kitty)?;
-
-            <Nonce<T>>::mutate(|n| *n += 1);
+            Self::increment_nonce()?;
 
             Ok(().into())
         }
     }
 
     impl<T: Config> Pallet<T> {
+        /// Safely increment the nonce, error on overflow
+        fn increment_nonce() -> DispatchResult {
+            <Nonce<T>>::try_mutate(|nonce| {
+                let next = nonce.checked_add(1).ok_or(Error::<T>::NonceOverflow)?;
+                *nonce = next;
+
+                Ok(().into())
+            })
+        }
+
+        /// Generate a random hash, using the nonce as part of the hash
+        fn random_hash(sender: &T::AccountId) -> T::Hash {
+            let nonce = <Nonce<T>>::get();
+            let seed = RandomnessCollectiveFlip::random_material();
+
+            T::Hashing::hash_of(&(seed, &sender, nonce))
+        }
+
         fn mint(
             to: T::AccountId,
             kitty_id: T::Hash,
@@ -317,6 +328,13 @@ pub mod pallet {
 
             Ok(())
         }
+    }
+
+    // ERRORS
+    #[pallet::error]
+    pub enum Error<T> {
+        /// Nonce has overflowed past u64 limits
+        NonceOverflow,
     }
 
     // EVENTS
