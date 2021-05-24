@@ -10,8 +10,29 @@ use frame_support::{
 use frame_system::ensure_signed;
 pub use pallet::*;
 use sp_runtime::traits::{Hash, Zero};
-use sp_std::cmp;
 use sp_std::prelude::*;
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq)]
+pub enum Gender {
+    Male,
+    Female,
+}
+
+impl Default for Gender {
+    fn default() -> Self {
+        Gender::Male
+    }
+}
+
+impl<T: Config> Kitty<T, T> {
+    pub fn gender(dna: T::Hash) -> Gender {
+        if dna.as_ref()[0] % 2 == 0 {
+            Gender::Male
+        } else {
+            Gender::Female
+        }
+    }
+}
 
 #[derive(Encode, Decode, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "std", derive(Debug))]
@@ -19,7 +40,7 @@ pub struct Kitty<Hash, Balance> {
     id: Hash,
     dna: Hash,
     price: Balance,
-    gen: u64,
+    gender: Gender,
 }
 
 #[frame_support::pallet]
@@ -61,7 +82,7 @@ pub mod pallet {
                     id: hash,
                     dna: hash,
                     price: balance,
-                    gen: 0,
+                    gender: Gender::Male,
                 };
 
                 let _ = <Module<T>>::mint(acct.clone(), hash, k);
@@ -79,7 +100,7 @@ pub mod pallet {
                 id: random_hash,
                 dna: random_hash,
                 price: 0u8.into(),
-                gen: 0,
+                gender: Kitty::<T, T>::gender(random_hash),
             };
 
             Self::mint(sender, random_hash, new_kitty)?;
@@ -220,7 +241,7 @@ pub mod pallet {
                 id: random_hash,
                 dna: final_dna,
                 price: 0u8.into(),
-                gen: cmp::max(kitty_1.gen, kitty_2.gen) + 1,
+                gender: Kitty::<T, T>::gender(final_dna),
             };
 
             Self::mint(sender, random_hash, new_kitty)?;
